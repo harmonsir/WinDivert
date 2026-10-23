@@ -38,7 +38,7 @@ jobs:
             release/*.zip
             release/SHA256SUMS.txt
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 3
 
   release:
     name: Publish GitHub Release
@@ -53,13 +53,16 @@ jobs:
           name: WinDivert-DLL-package
           path: release
 
-      - name: Publish release (DLL only, unsigned drivers excluded)
-        uses: softprops/action-gh-release@v2
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ github.ref_name }}
           files: |
             release/*.zip
             release/SHA256SUMS.txt
           fail_on_unmatched_files: true
+          generate_release_notes: true
+          make_latest: true
           body: |
             This package is built from this repository's WinDivert source.
             It contains x86/x64 WinDivert.dll and windivert.h, but NO kernel driver.
