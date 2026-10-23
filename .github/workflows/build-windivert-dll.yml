@@ -1,0 +1,67 @@
+name: Build and release WinDivert DLL
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build WinDivert.dll (x86 + x64)
+    runs-on: windows-2025-vs2026
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Configure Visual Studio 2026 MSBuild
+        uses: microsoft/setup-msbuild@v3
+        with:
+          vs-version: '[18.0,19.0)'
+          msbuild-architecture: x64
+
+      - name: Build, verify and package DLLs
+        shell: pwsh
+        run: ./.github/scripts/build-windivert-dll.ps1
+
+      - name: Upload distributable ZIP and checksums
+        uses: actions/upload-artifact@v7
+        with:
+          name: WinDivert-DLL-package
+          path: |
+            release/*.zip
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download distributable files
+        uses: actions/download-artifact@v8
+        with:
+          name: WinDivert-DLL-package
+          path: release
+
+      - name: Publish release (DLL only, unsigned drivers excluded)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.zip
+            release/SHA256SUMS.txt
+          fail_on_unmatched_files: true
+          body: |
+            This package is built from this repository's WinDivert source.
+            It contains x86/x64 WinDivert.dll and windivert.h, but NO kernel driver.
+            Runtime packet interception requires matching, appropriately signed
+            WinDivert32.sys / WinDivert64.sys drivers and administrator privileges.
